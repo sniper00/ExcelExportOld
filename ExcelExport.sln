@@ -1,0 +1,28 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 14
+VisualStudioVersion = 14.0.25420.1
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ExcelExport", "ExcelExport\ExcelExport.csproj", "{A8AEB6EC-2A5A-4A65-9422-2999F75E5548}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Example", "Example\Example.csproj", "{7A2061C5-ACA8-47FC-9064-23A55F9DC224}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{A8AEB6EC-2A5A-4A65-9422-2999F75E5548}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A8AEB6EC-2A5A-4A65-9422-2999F75E5548}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A8AEB6EC-2A5A-4A65-9422-2999F75E5548}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A8AEB6EC-2A5A-4A65-9422-2999F75E5548}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7A2061C5-ACA8-47FC-9064-23A55F9DC224}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7A2061C5-ACA8-47FC-9064-23A55F9DC224}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7A2061C5-ACA8-47FC-9064-23A55F9DC224}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7A2061C5-ACA8-47FC-9064-23A55F9DC224}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
