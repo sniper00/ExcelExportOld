@@ -20,6 +20,39 @@
 
 ![image](https://github.com/sniper00/ExcelExport/raw/master/Image/example.png)
 
+导出json数据
+```json
+[
+    {
+        "key1": 99,
+        "someid": 1010,
+        "rate": 0.7,
+        "name": "adadada",
+        "testarray": "1|2|3|4|",
+        "testpairarray": "1,2|3,4|5,6",
+        "testcustomtype": "a12345"
+    },
+    {
+        "key1": 102,
+        "someid": 1020,
+        "rate": 0.5,
+        "name": "dadad",
+        "testarray": "1|2|3|4",
+        "testpairarray": "1,2|3,4|5,6",
+        "testcustomtype": "b2345"
+    },
+    {
+        "key1": 103,
+        "someid": 1040,
+        "rate": 0.6,
+        "name": "fghj",
+        "testarray": "1|2|3|4",
+        "testpairarray": "1,2|3,4|5,6",
+        "testcustomtype": "c4567"
+    }
+]
+```
+
 生成CSharp加载代码
 ```CSharp
 using SimpleJSON;
