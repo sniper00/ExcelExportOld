@@ -185,7 +185,7 @@ namespace ExcelExport
 
                         if (i > 0) { sw.Write(","); }
 
-                        sw.Write("{");
+                        sw.Write("[");
                         for (int j = 0; j < dt.Columns.Count; j++)
                         {
                             if (j > 0) { sw.Write(","); }
@@ -193,16 +193,17 @@ namespace ExcelExport
                             var datatype = dataType[columnsName[j]];
                             if (IsBaseDataType(datatype))
                             {
-                                sw.Write(string.Format("\"{0}\":{1}", columnsName[j], dt.Rows[i][j].ToString()));
+                                //sw.Write(string.Format("\"{0}\":{1}", columnsName[j], dt.Rows[i][j].ToString()));
+                                sw.Write(dt.Rows[i][j].ToString());
                             }
                             else
                             {
-                                sw.Write(string.Format("\"{0}\":\"{1}\"", columnsName[j], dt.Rows[i][j].ToString()));
+                                sw.Write(string.Format("\"{0}\"", dt.Rows[i][j].ToString()));
                             }
 
                             rowData.Add(columnsName[j], dt.Rows[i][j].ToString());
                         }
-                        sw.Write("}");
+                        sw.Write("]");
 
                         var sRet = rowCheck?.Invoke(rowData);
                         if (null != sRet && sRet != "ok")

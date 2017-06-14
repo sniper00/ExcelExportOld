@@ -130,8 +130,11 @@ function M.CodeGen(savePath, tbName, colsName, dataType, fieldConstraints)
     CodeWriter.WriteLine('_datas.Clear();')
     CodeWriter.WriteLine("var parser = JSONNode.Parse(content);");
     CodeWriter.WriteLine("var dataArray = parser.AsArray;");
-    CodeWriter.WriteLine("foreach (var data in dataArray.Childs)");
+    CodeWriter.WriteLine("if(null == dataArray) return false;");
+    CodeWriter.WriteLine("foreach (var item in dataArray.Childs)");
     CodeWriter.WriteLeftBrace()
+    CodeWriter.WriteLine("var data = item.AsArray;");
+    CodeWriter.WriteLine("if(null == data) return false;");
     CodeWriter.WriteLine(tbName .. " d = new " .. tbName .. "();");
 
     for i = 0, colsName.Count - 1 do
@@ -139,9 +142,9 @@ function M.CodeGen(savePath, tbName, colsName, dataType, fieldConstraints)
         local vType = DictGetValue(dataType, colName)
         if vType then
             if Common.IsBaseDataType(vType) then
-                CodeWriter.WriteLine('d.' .. colName .. " = " .. "data[\"" .. colName .. "\"]." .. M.jsonConvert[vType] .. ";")
+                CodeWriter.WriteLine('d.' .. colName .. " = " .. "data[" .. tostring(i) .. "]." .. M.jsonConvert[vType] .. ";")
             else
-                CodeWriter.WriteLine('d.' .. colName .. " = " ..M.CustomDataType[vType].parser("data[\"" .. colName .. "\"].Value").. ";")
+                CodeWriter.WriteLine('d.' .. colName .. " = " ..M.CustomDataType[vType].parser("data[" .. tostring(i) .. "].Value").. ";")
             end
         end
     end
