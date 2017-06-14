@@ -23,33 +23,33 @@
 导出json数据
 ```json
 [
-    {
-        "key1": 99,
-        "someid": 1010,
-        "rate": 0.7,
-        "name": "adadada",
-        "testarray": "1|2|3|4|",
-        "testpairarray": "1,2|3,4|5,6",
-        "testcustomtype": "a12345"
-    },
-    {
-        "key1": 102,
-        "someid": 1020,
-        "rate": 0.5,
-        "name": "dadad",
-        "testarray": "1|2|3|4",
-        "testpairarray": "1,2|3,4|5,6",
-        "testcustomtype": "b2345"
-    },
-    {
-        "key1": 103,
-        "someid": 1040,
-        "rate": 0.6,
-        "name": "fghj",
-        "testarray": "1|2|3|4",
-        "testpairarray": "1,2|3,4|5,6",
-        "testcustomtype": "c4567"
-    }
+    [
+        99,
+        1010,
+        0.7,
+        "adadada",
+        "1|2|3|4|",
+        "1,2|3,4|5,6",
+        "a12345"
+    ],
+    [
+        102,
+        1020,
+        0.5,
+        "dadad",
+        "1|2|3|4",
+        "1,2|3,4|5,6",
+        "b2345"
+    ],
+    [
+        103,
+        1040,
+        0.6,
+        "fghj",
+        "1|2|3|4",
+        "1,2|3,4|5,6",
+        "c4567"
+    ]
 ]
 ```
 
@@ -98,16 +98,19 @@ namespace Config
 			_datas.Clear();
 			var parser = JSONNode.Parse(content);
 			var dataArray = parser.AsArray;
-			foreach (var data in dataArray.Childs)
+			if(null == dataArray) return false;
+			foreach (var item in dataArray.Childs)
 			{
+				var data = item.AsArray;
+				if(null == data) return false;
 				example d = new example();
-				d.key1 = data["key1"].AsInt;
-				d.someid = data["someid"].AsInt;
-				d.rate = data["rate"].AsFloat;
-				d.name = data["name"].Value;
-				d.testarray = StringUtil.ParseArray<int>(data["testarray"].Value,'|');
-				d.testpairarray = StringUtil.ParsePairArray<int,int>(data["testpairarray"].Value,'|',',');
-				d.testcustomtype = data["testcustomtype"].Value;
+				d.key1 = data[0].AsInt;
+				d.someid = data[1].AsInt;
+				d.rate = data[2].AsFloat;
+				d.name = data[3].Value;
+				d.testarray = StringUtil.ParseArray<int>(data[4].Value,'|');
+				d.testpairarray = StringUtil.ParsePairArray<int,int>(data[5].Value,'|',',');
+				d.testcustomtype = data[6].Value;
 				if(!Add(d.key1,d.rate,d))
 				{
 					return false;
