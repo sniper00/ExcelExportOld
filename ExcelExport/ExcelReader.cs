@@ -13,19 +13,11 @@ namespace ExcelExport
     class ExcelReader
     {
         public List<string> SheetNameList = new List<string>();
-        public string checkScript = "";
         DataSet dataSet;
         public bool Read(string filePath, bool hdr = true)
         {
             try
             {
-                var scriptName = Path.GetFileNameWithoutExtension(filePath) + ".checker.lua";
-                var scriptFile = Path.GetDirectoryName(filePath) +"\\"+ scriptName;
-                if(File.Exists(scriptFile))
-                {
-                    checkScript = File.ReadAllText(scriptFile);
-                }
-
                 FileStream stream = File.Open(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
                 IExcelDataReader excelReader;
 
@@ -57,7 +49,7 @@ namespace ExcelExport
             }
             catch (Exception ex)
             {
-                Form1.AddInfoMessage(ex.Message, InfoType.Error);
+                Form1.WriteInfo(ex.Message, InfoType.Error);
             }
             return false;
         }

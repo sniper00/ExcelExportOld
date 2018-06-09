@@ -45,17 +45,17 @@ namespace Config
 			if(dataArray == null) return false;
 			foreach (var item in dataArray.Children)
 			{
-				var data = item.AsObject;
+				var data = item.AsArray;
 				if(data == null) return false;
 				example d = new example();
-				d.key1 = data["key1"].AsInt;
-				d.someid = data["someid"].AsInt;
-				d.rate = data["rate"].AsFloat;
-				d.name = data["name"].Value;
-				d.testarray = StringUtil.ParseArray<int>(data["testarray"].Value);
-				d.testpairarray = StringUtil.ParsePairArray<int,int>(data["testpairarray"].Value);
-				d.testcustomtype = data["testcustomtype"].Value;
-				d.isdog = data["isdog"].AsBool;
+				d.key1 = data[0].AsInt;
+				d.someid = data[1].AsInt;
+				d.rate = data[2].AsFloat;
+				d.name = data[3].Value;
+				d.testarray = StringUtil.ParseArray<int>(data[4].Value);
+				d.testpairarray = StringUtil.ParsePairArray<int,int>(data[5].Value);
+				d.testcustomtype = data[6].Value;
+				d.isdog = data[7].AsBool;
 				if(!Add(d.key1,d.rate,d))
 				{
 					return false;

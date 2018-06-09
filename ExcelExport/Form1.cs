@@ -1,32 +1,46 @@
 ﻿using SimpleJSON;
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
+using System.Text;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Windows.Forms;
+
 
 namespace ExcelExport
 {
     public partial class Form1 : Form
     {
-        //保存上次打开路径
-        static string configfile = "ExcelExport.data";
-        OutputType OType = OutputType.JSON;
-        delegate void DoDataDelegate();
-        ToolTip tips;
+        //保存配置
+        static string configfile = "ExcelExport.json";
 
         int errors = 0;
-        bool bProcessing = false;
         bool bStop = false;
+        bool miniJson = false;
 
-        static public ConcurrentQueue<InfoContext> infoQueue = new ConcurrentQueue<InfoContext>();
+        SimpleConfig config;
+        ContextMenuStrip strip;
+        string selectedRow;
+
+        ConcurrentQueue<Action> eventQueue = new ConcurrentQueue<Action>();
+
+        Thread thread;
+
+        static Form1 instance_;
+
+        public static Form1 Instance()
+        {
+            return instance_;
+        }
 
         public Form1()
         {
             InitializeComponent();
 
-            tips = new ToolTip();
+            instance_ = this;
 
             formTimer.Start();
 
@@ -34,174 +48,231 @@ namespace ExcelExport
 
             try
             {
-                OpenConfig();
+                config = new SimpleConfig(configfile);
             }
             catch (Exception ex)
             {
-                AddInfoMessage("Open Local Config File Failed.{0}" + ex.ToString());
+                MessageBox.Show("Open Local Config File Failed.{0}" + ex.ToString());
             }
+
+            listView1.Columns.Add("类型", 120, HorizontalAlignment.Left);
+            listView1.Columns.Add("输出路径", listView1.Width-120, HorizontalAlignment.Left);
+            listView1.CheckBoxes = true;
+
+            listView1.MouseClick += ListViewMouseClicked;
+            listView1.SelectedIndexChanged += ListViewSelected;
+            listView1.ItemChecked+= ListViewItemClicked;
+
+            strip = new ContextMenuStrip();
+            strip.Items.Add("设置输出路径",null, MenuClick);
+            LoadGenerator();
         }
 
-        private void OpenConfig()
+
+        void LoadGenerator()
         {
-            if (File.Exists(configfile))
+            if (!Directory.Exists("./Generator"))
             {
-                var content = File.ReadAllText(configfile);
-                JSONNode json = JSON.Parse(content);
-                if (json != null)
+                _WriteInfo("Generator File Not Found.", InfoType.Error);
+                return;
+            }
+
+            ExcelPath.Text = config.Get("Excel.Path", "");
+            if(!Directory.Exists(ExcelPath.Text))
+            {
+                ExcelPath.Text = "";
+            }
+
+            listView1.BeginUpdate();
+
+            listView1.Items.Clear();
+            {
+                string[] files = Directory.GetFiles("./Generator", "*.lua");
+                foreach (var f in files)
                 {
-                    foreach (var c in json.Childs)
+                    ListViewItem lvi = new ListViewItem();
+                    lvi.Text = Path.GetFileNameWithoutExtension(f);
+                    var outpath = config.Get("Generator." + lvi.Text + ".Path", "");
+                    if(!Directory.Exists(outpath))
                     {
-                        if (!Directory.Exists(c.Value))
-                            continue;
-                        if (c.Key == "ExcelPath")
-                        {
-                            ExcelPath.Text = c.Value;
-                        }
-                        else if (c.Key == "JsonPath")
-                        {
-                            JsonPath.Text = c.Value;
-                        }
-                        else if (c.Key == "codePath")
-                        {
-                            codePath.Text = c.Value;
-                        }
+                        outpath = "";
                     }
+
+                    lvi.SubItems.Add(outpath);
+                    lvi.Checked = config.Get("Generator." + lvi.Text + ".Checked", false);
+                    listView1.Items.Add(lvi);
                 }
             }
+            listView1.EndUpdate();
         }
 
-        void SaveConfigFile()
+        void ListViewMouseClicked(object sender, MouseEventArgs e)
         {
-            JSONClass jc = new JSONClass();
+            if (e.Button == MouseButtons.Right)
             {
-                JSONData jd = new JSONData(ExcelPath.Text);
-                jc["ExcelPath"] = jd;
-            }
-
-            {
-                JSONData jd = new JSONData(JsonPath.Text);
-                jc["JsonPath"] = jd;
-            }
-
-            {
-                JSONData jd = new JSONData(codePath.Text);
-                jc["codePath"] = jd;
-            }
-
-            var str = jc.ToString();
-
-            using (StreamWriter sw = new StreamWriter(configfile, false))
-            {
-                sw.Write(str);
-                sw.Flush();
-                sw.Close();
+                strip.Show(listView1, e.Location);//鼠标右键按下弹出菜单
             }
         }
+
+        void MenuClick(object sender, EventArgs e)
+        {
+            var path = "Generator." + selectedRow + ".Path";
+            FolderBrowserDialog dialog = new FolderBrowserDialog();
+            if (Directory.Exists(config.Get(path, "")))
+            {
+                dialog.SelectedPath = config.Get(path, "");
+            }
+
+            if (dialog.ShowDialog() == DialogResult.OK)
+            {
+                config.Set(path, dialog.SelectedPath);
+                LoadGenerator();
+            }
+        }
+
+        void ListViewSelected(object sender, EventArgs e)
+        {
+            if (listView1.SelectedIndices != null && listView1.SelectedIndices.Count > 0)
+            {
+                ListView.SelectedIndexCollection c = listView1.SelectedIndices;
+                selectedRow = listView1.Items[c[0]].Text;
+            }
+        }
+
+        void ListViewItemClicked(object sender, ItemCheckedEventArgs e)
+        {
+            config.Set("Generator." + e.Item.Text +".Checked", e.Item.Checked);
+        }
+
 
         private void OpenExcel_Click(object sender, EventArgs e)
         {
             FolderBrowserDialog dialog = new FolderBrowserDialog();
+            if (Directory.Exists(config.Get("Excel.Path", "")))
+            {
+                dialog.SelectedPath = config.Get("Excel.Path", "");
+            }
+
             if (dialog.ShowDialog() == DialogResult.OK)
             {
+                config.Set("Excel.Path", dialog.SelectedPath);
                 ExcelPath.Text = dialog.SelectedPath;
             }
         }
 
-        private void SaveXml_Click(object sender, EventArgs e)
+        void Post(Action evt)
         {
-            FolderBrowserDialog dialog = new FolderBrowserDialog();
-            if (Directory.Exists(JsonPath.Text))
-            {
-                dialog.SelectedPath = JsonPath.Text;
-            }
-
-            if (dialog.ShowDialog() == DialogResult.OK)
-            {
-                OType = OutputType.JSON;
-                JsonPath.Text = dialog.SelectedPath;
-            }
+            eventQueue.Enqueue(evt);
         }
 
-        private void SaveDTC_Click(object sender, EventArgs e)
+        void _WriteInfo(string content, InfoType t = InfoType.Normal)
         {
-            FolderBrowserDialog dialog = new FolderBrowserDialog();
-            if (Directory.Exists(JsonPath.Text))
+            if (t == InfoType.Error)
             {
-                dialog.SelectedPath = codePath.Text;
+                errors++;
+                infoText.SelectionColor = Color.Red;
+                SetErrors(errors);
             }
+            else
+            {
+                infoText.SelectionColor = Color.Black;
+            }
+            infoText.AppendText(content + "\n");
+            infoText.Select(infoText.TextLength, 0);
+            infoText.ScrollToCaret();
+        }
 
-            if (dialog.ShowDialog() == DialogResult.OK)
+        public static void WriteInfo(string content, InfoType t = InfoType.Normal)
+        {
+            Instance().Post(() =>
             {
-                codePath.Text = dialog.SelectedPath;
-            }
+                Instance()._WriteInfo(content,t);
+            });
+        }
+
+        public static void SetProgressBarMax(int max)
+        {
+            Instance().Post(() =>
+            {
+                Instance().progressBar1.Maximum = max;
+            });
+        }
+
+        public static void SetProgressBar(int n)
+        {
+            Instance().Post(() =>
+            {
+                Instance().progressBar1.Value = n;
+            });
         }
 
         void DoData()
         {
-            if (progressBar1.InvokeRequired)
-            {
-                DoDataDelegate d = DoData;
-                progressBar1.Invoke(d);
-            }
-            else
-            {
-                AddInfoMessage("*****BEGIN " + DateTime.Now.ToString());
-                string[] fn = Directory.GetFiles(ExcelPath.Text, "*.xls*");
-                progressBar1.Maximum = fn.Length;
+            WriteInfo("*****BEGIN " + DateTime.Now.ToString());
+            string[] files1 = Directory.GetFiles(ExcelPath.Text, "*.xls*");
+            string[] files2 = Directory.GetFiles(ExcelPath.Text, "*.txt*");
 
-                DataExport de = new DataExport();
-                de.CodePath = codePath.Text;
-                de.JsonPath = JsonPath.Text;
-                de.OType = OType;
+            string[] files = new string[files1.Length + files2.Length];
 
-                foreach (var file in fn)
+            files1.CopyTo(files, 0);
+            files2.CopyTo(files, files1.Length);
+
+            SetProgressBarMax(files.Length);
+
+            DataExport de = new DataExport();
+            de.GetStringConfig = config.Get;
+            de.GetBoolConfig = config.Get;
+            de.GetNumberConfig = config.Get;
+            de.MinisizeJson = miniJson;
+
+            int n = 0;
+            foreach (var file in files)
+            {
+                if (bStop)
                 {
-                    if(bStop)
+                    break;
+                }
+
+                if (!Path.GetFileName(file).Contains("$"))
+                {
+                    WriteInfo("Handle " + file);
+                    if(!de.Work(file))
                     {
                         break;
                     }
-
-                    if(!Path.GetFileName(file).Contains("$"))
-                    {
-                        AddInfoMessage("Handle " + file);
-                        de.Work(file);
-                    }       
-                    progressBar1.Value = progressBar1.Value + 1;
-                    Application.DoEvents();
                 }
-                bProcessing = false;
-                progressBar1.Value = progressBar1.Maximum;
-                AddInfoMessage("*****END  " + DateTime.Now.ToString());
+                n++;
+                SetProgressBar(n);
             }
+            //SetProgressBar(files.Length);
+            WriteInfo("*****END  " + DateTime.Now.ToString());
         }
 
         private void Start_Click(object sender, EventArgs e)
         {
-            if (!Directory.Exists(ExcelPath.Text) || !Directory.Exists(JsonPath.Text) || !Directory.Exists(codePath.Text))
+            if (!Directory.Exists(ExcelPath.Text))
             {
-                MessageBox.Show("Excel 目录 或 保存 目录不正确！", "Error", MessageBoxButtons.OK);
+                MessageBox.Show("工作目录不存在！", "Error", MessageBoxButtons.OK);
                 return;
             }
 
-            if (bProcessing)
+            if (null != thread &&  thread.ThreadState != ThreadState.Stopped)
             {
                 MessageBox.Show("任务正在处理", "Warning", MessageBoxButtons.OK);
                 return;
             }
 
-            SaveConfigFile();
+            config.Set("Excel.Path", ExcelPath.Text);
 
             progressBar1.Value = 0;
             errors = 0;
             SetErrors(0);
             bStop = false;
-            listBox1.Items.Clear();
+            infoText.Text = "";
 
-            Thread thread = new Thread(DoData);
+            thread = new Thread(DoData);
             thread.IsBackground = true;
             thread.Start();
-            bProcessing = true;
         }
 
         private void StopBtn_Click(object sender, EventArgs e)
@@ -209,67 +280,33 @@ namespace ExcelExport
             bStop = true;
         }
 
-        static public void AddInfoMessage(string content, InfoType t = InfoType.Normal)
-        {
-            infoQueue.Enqueue(new InfoContext(content, t));
-        }
-
         private void formTimer_Tick(object sender, EventArgs e)
         {
-            InfoContext ctx;
-            while (infoQueue.TryDequeue(out ctx))
+            Action act;
+            while (eventQueue.TryDequeue(out act))
             {
-                if(ctx.infoType == InfoType.Error)
-                {
-                    errors++;
-                    SetErrors(errors);
-                }
-
-                listBox1.Items.Add(ctx.content);
+                act();
             }
         }
 
         private void Form1_FormClosed(object sender, FormClosedEventArgs e)
         {
+            if (null != thread && thread.ThreadState == ThreadState.Running)
+            {
+                bStop = true;
+                thread.Join();
+            }
             formTimer.Stop();
-        }
-
-        private void listBox1_MouseMove(object sender, MouseEventArgs e)
-        {
-            ListBox lb = ((ListBox)(sender));
-
-            int idx = lb.IndexFromPoint(e.Location);// 获取鼠标所在的项索引
-            if (idx == -1 || idx >= lb.Items.Count) //鼠标所在位置没有 项
-            {
-                return;
-            }
-
-            if(tips.GetToolTip(lb) != lb.Items[idx].ToString())
-            {
-                string txt = ((ListBox)(sender)).GetItemText(((ListBox)(sender)).Items[idx]); //获取项文本
-                tips.SetToolTip((ListBox)sender, txt);
-            }
-        }
-
-        private void listBox1_DrawItem(object sender, DrawItemEventArgs e)
-        {
-            e.DrawBackground();
-            if (e.Index < 0)
-                return;
-
-            Brush mybsh = Brushes.Black;
-            if (listBox1.Items[e.Index].ToString().StartsWith("ERROR"))
-            {
-                mybsh = Brushes.Red;
-            }
-
-            e.DrawFocusRectangle();
-            e.Graphics.DrawString(listBox1.Items[e.Index].ToString(), e.Font, mybsh, e.Bounds, StringFormat.GenericDefault);
         }
 
         private void SetErrors(int n)
         {
             errorNum.Text = n.ToString() + " errors";
+        }
+
+        private void minijson_CheckedChanged(object sender, EventArgs e)
+        {
+            miniJson = minijson.Checked;
         }
     }
 }

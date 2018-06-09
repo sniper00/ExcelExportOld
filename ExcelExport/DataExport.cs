@@ -8,42 +8,27 @@ using XLua;
 
 namespace ExcelExport
 {
-    public enum OutputType
-    {
-        XML,
-        JSON
-    }
-
     public class DataExport
     {
-        Dictionary<string, string> dataType = new Dictionary<string, string>();//数据类型
-        Dictionary<string, string> fieldConstraint = new Dictionary<string, string>();//字段约束-列名
-        List<string> columnsName = new List<string>();//列名
-        string tableName;
-
         LuaEnv luaEnv = new LuaEnv();
-
+ 
         [CSharpCallLua]
-        public delegate void CodeGen(string codePath, string tableName, List<string> columnsName, Dictionary<string, string> dataType, Dictionary<string, string> keyType);
+        public delegate void OnData(DataTable data, string checkScriptPath);
 
-        [CSharpCallLua]
-        public delegate string RowCheck(Dictionary<string, string> rowData);
+        OnData onData;
 
-        CodeGen codeGen;
+        public Func<string, string, string> GetStringConfig;
+        public Func<string, bool, bool> GetBoolConfig;
+        public Func<string, double, double> GetNumberConfig;
 
-        public string JsonPath
+        public bool MinisizeJson
         {
             get; set;
         }
 
-        public string CodePath
+        public DataExport()
         {
-            get; set;
-        }
-
-        public OutputType OType
-        {
-            get; set;
+            BindLuaFunction();
         }
 
         public void Print(string s)
@@ -51,9 +36,21 @@ namespace ExcelExport
             MessageBox.Show(s);
         }
 
+        public void PushInfo(int ntype, string msg)
+        {
+            if(ntype == (int)(InfoType.Error))
+            {
+                Form1.WriteInfo(msg, InfoType.Error);
+            }
+            else
+            {
+                Form1.WriteInfo(msg, InfoType.Normal);
+            }
+        }
+
         public void BindLuaFunction()
         {
-            if (null != codeGen)
+            if (null != onData)
             {
                 return;
             }
@@ -62,186 +59,75 @@ namespace ExcelExport
             {
                 var luaString = File.ReadAllText("./CodeGen.lua");
                 luaEnv.DoString(luaString);
-                codeGen = luaEnv.Global.Get<CodeGen>("CodeGen");
+                onData = luaEnv.Global.Get<OnData>("OnData");
                 luaEnv.Global.Set("DataExport", this);
             }
             catch(Exception ex)
             {
-                Form1.AddInfoMessage(ex.Message, InfoType.Error);
+                Form1.WriteInfo(ex.Message, InfoType.Error);
             }
         }
 
-        public void Work(string excelFile)
+        string GetCheckScript(string file)
         {
-            BindLuaFunction();
-
-            ExcelReader er = new ExcelReader();
-            if (!er.Read(excelFile))
+            var scriptName = Path.GetFileNameWithoutExtension(file) + ".checker.lua";
+            var scriptFile = Path.GetDirectoryName(file) + "\\" + scriptName;
+            if (File.Exists(scriptFile))
             {
-                return;
+                return File.ReadAllText(scriptFile);
             }
-
-            var dt = er.GetFirstTable();
-            if (null == dt)
-                return;
-
-            columnsName.Clear();
-            dataType.Clear();
-            fieldConstraint.Clear();
-
-            for (int j = 0; j < dt.Columns.Count; j++)
-            {
-                columnsName.Add(dt.Columns[j].ColumnName);
-            }
-
-            tableName = dt.TableName;
-
-            // 第一行 列名
-            // 第二行 数据类型
-            // 第三行 字段约束
-
-            //至少有一行数据
-            if (dt.Rows.Count < 3)
-                return;
-
-            int totalRow = dt.Rows.Count + 1;
-
-            for (int j = 0; j < dt.Columns.Count; j++)
-            {
-                if (dt.Rows[0][j].ToString().Length != 0)
-                    dataType.Add(columnsName[j], (dt.Rows[0][j].ToString()));
-
-                if (dt.Rows[1][j].ToString().Length != 0)
-                    fieldConstraint.Add(columnsName[j], dt.Rows[1][j].ToString());
-            }
-
-            dt.Rows.RemoveAt(0); //data type
-            dt.Rows.RemoveAt(0); // keys
-
-            while (dt.Columns.Count != 0 && dt.Rows[0][0].ToString().StartsWith("#"))
-            {
-                dt.Rows.RemoveAt(0);// skip # lines
-            }
-
-            if (OType == OutputType.XML)
-            {
-                //DoXml(dt);
-            }
-            else if (OType == OutputType.JSON)
-            {
-                DoJson(dt, totalRow - dt.Rows.Count, er.checkScript);
-            }
+            return "";
         }
 
-        //void DoXml(DataTable dt)
-        //{
-        //    StreamWriter sw = new StreamWriter(JsonPath + "\\" + tableName + ".xml", false, Encoding.GetEncoding("UTF-8"));
-        //    sw.WriteLine("<?xml version=\"1.0\" encoding=\"utf-8\" ?>");
-        //    sw.WriteLine("<" + tableName + ">");
-        //    for (int i = 1; i < dt.Rows.Count; i++)
-        //    {
-        //        if (dt.Columns.Count == 0 || dt.Rows[i][0].ToString().Length == 0)
-        //            continue;
+        public bool WriteFile(string path, string content)
+        {
+            if(!Directory.Exists(Path.GetDirectoryName(path)))
+            {
+                Form1.WriteInfo(string.Format("Path: {0} does not exist.", path), InfoType.Error);
+                return false;
+            }
 
-        //        sw.WriteLine("\t\t<" + tableName + ">");
-        //        for (int j = 0; j < dt.Columns.Count; j++)
-        //        {
-        //            if (dataType.ContainsKey(columnsName[j]))
-        //                sw.WriteLine("\t\t\t<" + columnsName[j] + ">" + dt.Rows[i][j].ToString() + "</" + columnsName[j] + ">");
-        //        }
-        //        sw.WriteLine("\t\t</" + tableName + ">");
-        //    }
-        //    sw.WriteLine("</" + tableName + ">");
-        //    sw.Flush();
-        //    sw.Close();
-        //}
+            using (StreamWriter sw = new StreamWriter(path, false))
+            {
+                sw.Write(content);
+                sw.Flush();
+                sw.Close();
+            }
+            return true;
+        }
 
-        void DoJson(DataTable dt, int skipRow,  string checkScript = "")
+        public bool Work(string file)
         {
             try
             {
-                using (StreamWriter sw = new StreamWriter(JsonPath + "\\" + tableName + ".json", false, Encoding.GetEncoding("UTF-8")))
+                if(Path.GetExtension(file) == ".xlsx" )
                 {
-                    sw.Write("[");
-
-                    LuaEnv checkEnv = null;
-                    RowCheck rowCheck = null;
-
-                    if (checkScript.Length > 0)
+                    ExcelReader er = new ExcelReader();
+                    if (!er.Read(file))
                     {
-                        checkEnv = new LuaEnv();
-                        checkEnv.DoString(checkScript);
-                        rowCheck = checkEnv.Global.Get<RowCheck>("RowCheck");
+                        return true;
                     }
 
-                    Dictionary<string, string> rowData = new Dictionary<string, string>();
+                    var dt = er.GetFirstTable();
+                    if (null == dt)
+                        return true;
 
-                    for (int i = 0; i < dt.Rows.Count; i++)
-                    {
-                        if (dt.Columns.Count == 0 || dt.Rows[i][0].ToString().Length == 0)
-                            continue;
+                    onData(dt, GetCheckScript(file));
+                }
+                else if(Path.GetExtension(file) == ".txt")
+                {
+                    var dt = CsvReader.OpenCSV(file, new string[] { "\t" },1);
 
-                        rowData.Clear();
+                    if (null == dt)
+                        return true;
 
-                        if (i > 0) { sw.Write(","); }
-
-                        sw.Write("[");
-                        for (int j = 0; j < dt.Columns.Count; j++)
-                        {
-                            if (j > 0) { sw.Write(","); }
-
-                            var datatype = dataType[columnsName[j]];
-                            if (IsBaseDataType(datatype))
-                            {
-                                //sw.Write(string.Format("\"{0}\":{1}", columnsName[j], dt.Rows[i][j].ToString()));
-                                sw.Write(dt.Rows[i][j].ToString());
-                            }
-                            else
-                            {
-                                sw.Write(string.Format("\"{0}\"", dt.Rows[i][j].ToString()));
-                            }
-
-                            rowData.Add(columnsName[j], dt.Rows[i][j].ToString());
-                        }
-                        sw.Write("]");
-
-                        var sRet = rowCheck?.Invoke(rowData);
-                        if (null != sRet && sRet != "ok")
-                        {
-                            Form1.AddInfoMessage(string.Format("Row {0} Column ", skipRow + i + 1) + sRet, InfoType.Error);
-                            //break;
-                        }
-                    }
-                    sw.Write("]");
-                    sw.Flush();
-                    sw.Close();
-                    codeGen(CodePath, tableName, columnsName, dataType, fieldConstraint);
-                }       
+                    onData(dt, GetCheckScript(file));
+                    return true;
+                }
             }
             catch (Exception ex)
             {
-                Form1.AddInfoMessage(ex.Message, InfoType.Error);
-            }
-        }
-
-        bool IsBaseDataType(string s)
-        {
-            switch (s)
-            {
-                case "int":
-                    return true;
-                case "uint":
-                    return true;
-                case "long":
-                    return true;
-                case "ulong":
-                    return true;
-                case "float":
-                    return true;
-                case "double":
-                    return true;
-                case "bool":
-                    return true;
+                Form1.WriteInfo(ex.Message, InfoType.Error);
             }
             return false;
         }
