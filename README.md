@@ -23,6 +23,8 @@ Binary 目录有编译好的可执行文件：
 - 左边列表，根据需要勾选导出导出项，并在 **输出路径** 列下鼠标右键设置输出目录
 - 点击start即可开始
 
+![image](https://github.com/sniper00/ExcelExport/raw/master/Image/ui.png)
+
 ## 示例
 
 ![image](https://github.com/sniper00/ExcelExport/raw/master/Image/example.png)
