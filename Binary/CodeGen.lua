@@ -1,13 +1,22 @@
-package.path = './?.lua;Templates/?.lua;'
+package.path = './?.lua;Generator/?.lua;'
+
 local Common = require("Common")
+
+local Path = CS.System.IO.Path
+local File = CS.System.IO.File
+local Directory = CS.System.IO.Directory
 
 local Generators = {}
 
---BEGIN_Generator
-Generators["Json"] = require('Generator.Json')
-Generators["Lua"] = require('Generator.Lua')
-Generators["CSharp"] = require('Generator.CSharp')
---END_Generator
+local function LoadGenerator(  )
+    local GeneratorFiles = Directory.GetFiles("./Generator",'*.lua*')
+    for i=0,GeneratorFiles.Length-1 do
+        local filename = Path.GetFileNameWithoutExtension(GeneratorFiles[i])
+        Generators[filename] = require(filename)
+    end
+end
+
+LoadGenerator()
 
 local function OnData(dt,checkScript)
 
@@ -53,28 +62,25 @@ local function OnData(dt,checkScript)
 
     for k,v in pairs(Generators) do
         local Enable  = DataExport.GetBoolConfig("Generator."..k..".Checked",false)
-        v.Enable = Enable
+        local OutPath  = DataExport.GetStringConfig("Generator."..k..".Path","")
+        if Enable and not Directory.Exists(OutPath) then
+            DataExport:PushInfo("Warn",string.format("Generator [%s] skipped: not set output path.",k))
+        end
+        v.Enable = Enable and Directory.Exists(OutPath)
     end
 
-    for k,v in pairs(Generators)  do
-        if not v.IsCode and v.Enable then
-            if k == 'Json' then
-                v.minisize = DataExport.MinisizeJson
-            end
-
+    for k,v in pairs(Generators) do
+        if v.Enable and v.Begin then
+            v.minijson = DataExport.MinisizeJson
             local OutPath  = DataExport.GetStringConfig("Generator."..k..".Path","")
-            if string.len(OutPath)>0 then
-                v.Begin(OutPath..'/'.. tableName .. v.Fileext)
-            else
-                v.Enable = false
-            end
+            v.Begin(OutPath..'/'.. tableName .. v.Fileext)
         end
     end
 
     for row = skipRowNum , rows.Count-1 do
 
         for _,v in pairs(Generators)  do
-            if not v.IsCode and v.Enable then
+            if v.Enable and v.OnRowBegin then
                 v.OnRowBegin(row == skipRowNum)
             end
         end
@@ -87,7 +93,7 @@ local function OnData(dt,checkScript)
             local value =  rows[row][col-1]
 
             for _,v in pairs(Generators) do
-                if not v.IsCode and v.Enable then
+                if v.Enable and v.OnColumn then
                     v.OnColumn(col ==1, value, datatype,colname)
                 end
             end
@@ -99,7 +105,7 @@ local function OnData(dt,checkScript)
             local checker = load(checkScript)()
             local ret = checker(rowData)
             if ret ~= 'ok' then
-                DataExport:PushInfo(1,string.format("Row %d Col Named %s",row+2,ret))
+                DataExport:PushInfo("Error",string.format("Row %d Col Named [%s]",row+2,ret))
             end
         end
 
@@ -111,24 +117,18 @@ local function OnData(dt,checkScript)
     end
 
     for _,v in pairs(Generators)  do
-        if not v.IsCode and v.Enable then
+        if v.Enable and v.End then
             v.End(columnsName,dataType,fieldConstraint)
         end
     end
 
     for k,v in pairs(Generators)  do
-        if v.IsCode and v.Enable then
+        if v.Enable and v.CodeGen then
             local OutPath  = DataExport.GetStringConfig("Generator."..k..".Path","")
-            if string.len(OutPath)>0 then
-                v.minisize = DataExport.MinisizeJson
-                v.CodeGen(OutPath,tableName,columnsName,dataType,fieldConstraint)
-            end
+            v.minijson = DataExport.MinisizeJson
+            v.CodeGen(OutPath,tableName,columnsName,dataType,fieldConstraint)
         end
     end
-
-    -- CCharp 代码生成器
-    -- CSharpGenerator.minisize = JsonGenerator.minisize
-    -- CSharpGenerator.CodeGen(DataExport.CodePath,tableName,columnsName,dataType,fieldConstraint)
 end
 
 _G['OnData'] = OnData

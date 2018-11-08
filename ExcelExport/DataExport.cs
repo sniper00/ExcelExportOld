@@ -1,8 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Data;
 using System.IO;
-using System.Text;
 using System.Windows.Forms;
 using XLua;
 
@@ -36,16 +34,9 @@ namespace ExcelExport
             MessageBox.Show(s);
         }
 
-        public void PushInfo(int ntype, string msg)
+        public void PushInfo(InfoType ntype, string msg)
         {
-            if(ntype == (int)(InfoType.Error))
-            {
-                Form1.WriteInfo(msg, InfoType.Error);
-            }
-            else
-            {
-                Form1.WriteInfo(msg, InfoType.Normal);
-            }
+            Form1.WriteInfo(msg, ntype);
         }
 
         public void BindLuaFunction()
@@ -57,10 +48,10 @@ namespace ExcelExport
 
             try
             {
+                luaEnv.Global.Set("DataExport", this);
                 var luaString = File.ReadAllText("./CodeGen.lua");
                 luaEnv.DoString(luaString);
                 onData = luaEnv.Global.Get<OnData>("OnData");
-                luaEnv.Global.Set("DataExport", this);
             }
             catch(Exception ex)
             {
@@ -86,7 +77,6 @@ namespace ExcelExport
                 Form1.WriteInfo(string.Format("Path: {0} does not exist.", path), InfoType.Error);
                 return false;
             }
-
             using (StreamWriter sw = new StreamWriter(path, false))
             {
                 sw.Write(content);

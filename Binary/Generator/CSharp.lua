@@ -131,7 +131,7 @@ function M.CodeGen(savePath, tbName, colsName, dataType, fieldConstraints)
     fileWriter:WriteLine("if(dataArray == null) return false;")
     fileWriter:WriteLine("foreach (var item in dataArray.Children)")
     fileWriter:WriteLeftBrace()
-    if M.minisize then
+    if M.minijson then
         fileWriter:WriteLine("var data = item.AsArray;")
     else
         fileWriter:WriteLine("var data = item.AsObject;")
@@ -142,29 +142,39 @@ function M.CodeGen(savePath, tbName, colsName, dataType, fieldConstraints)
     for col, colName in pairs(colsName) do
         local vType = dataType[colName]
         if vType then
-            if M.minisize then
+            if M.minijson then
                 if Common.IsBaseDataType(vType) then
-                    fileWriter:WriteLine(
-                        "d." .. colName .. " = " .. "data[" .. tostring(col - 1) .. "]." .. M.jsonConvert[vType] .. ";"
-                    )
+                    fileWriter:Write("d.")
+                    fileWriter:RawWrite(colName)
+                    fileWriter:RawWrite(" = ")
+                    fileWriter:RawWrite("data[")
+                    fileWriter:RawWrite(tostring(col - 1))
+                    fileWriter:RawWrite("].")
+                    fileWriter:RawWrite(M.jsonConvert[vType])
+                    fileWriter:RawWrite(";\n")
                 else
-                    fileWriter:WriteLine(
-                        "d." ..
-                            colName ..
-                                " = " ..
-                                    M.CustomDataType[vType].parser("data[" .. tostring(col - 1) .. "].Value") .. ";"
-                    )
+                    fileWriter:Write("d.")
+                    fileWriter:RawWrite(colName)
+                    fileWriter:RawWrite(" = ")
+                    fileWriter:RawWrite(M.CustomDataType[vType].parser("data[" .. tostring(col - 1) .. "].Value"))
+                    fileWriter:RawWrite(";\n")
                 end
             else
                 if Common.IsBaseDataType(vType) then
-                    fileWriter:WriteLine(
-                        "d." .. colName .. " = " .. 'data["' .. colName .. '"].' .. M.jsonConvert[vType] .. ";"
-                    )
+                    fileWriter:Write("d.")
+                    fileWriter:RawWrite(colName)
+                    fileWriter:RawWrite(" = ")
+                    fileWriter:RawWrite('data["')
+                    fileWriter:RawWrite(colName)
+                    fileWriter:RawWrite('"].')
+                    fileWriter:RawWrite(M.jsonConvert[vType])
+                    fileWriter:RawWrite(";\n")
                 else
-                    fileWriter:WriteLine(
-                        "d." ..
-                            colName .. " = " .. M.CustomDataType[vType].parser('data["' .. colName .. '"].Value') .. ";"
-                    )
+                    fileWriter:Write("d.")
+                    fileWriter:RawWrite(colName)
+                    fileWriter:RawWrite(" = ")
+                    fileWriter:RawWrite(M.CustomDataType[vType].parser('data["' .. colName .. '"].Value'))
+                    fileWriter:RawWrite(";\n")
                 end
             end
         end

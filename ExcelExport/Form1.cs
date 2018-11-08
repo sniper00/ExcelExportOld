@@ -1,12 +1,8 @@
-﻿using SimpleJSON;
-using System;
+﻿using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
-using System.Text;
 using System.Threading;
-using System.Threading.Tasks;
 using System.Windows.Forms;
 
 
@@ -18,6 +14,7 @@ namespace ExcelExport
         static string configfile = "ExcelExport.json";
 
         int errors = 0;
+        int warns = 0;
         bool bStop = false;
         bool miniJson = false;
 
@@ -44,7 +41,7 @@ namespace ExcelExport
 
             formTimer.Start();
 
-            SetErrors(0);
+            SetErrorsAndWarns(0, 0);
 
             try
             {
@@ -167,16 +164,30 @@ namespace ExcelExport
 
         void _WriteInfo(string content, InfoType t = InfoType.Normal)
         {
-            if (t == InfoType.Error)
+            switch(t)
             {
-                errors++;
-                infoText.SelectionColor = Color.Red;
-                SetErrors(errors);
+                case InfoType.Normal:
+                    {
+                        infoText.SelectionColor = Color.Black;
+                        break;
+                    }
+                case InfoType.Error:
+                    {
+                        errors++;
+                        infoText.SelectionColor = Color.Red;
+                        SetErrorsAndWarns(errors, warns);
+                        break;
+                    }
+                case InfoType.Warn:
+                    {
+                        warns++;
+                        infoText.SelectionColor = Color.Green;
+                        SetErrorsAndWarns(errors, warns);
+                        break;
+                    }
+
             }
-            else
-            {
-                infoText.SelectionColor = Color.Black;
-            }
+
             infoText.AppendText(content + "\n");
             infoText.Select(infoText.TextLength, 0);
             infoText.ScrollToCaret();
@@ -244,7 +255,6 @@ namespace ExcelExport
                 n++;
                 SetProgressBar(n);
             }
-            //SetProgressBar(files.Length);
             WriteInfo("*****END  " + DateTime.Now.ToString());
         }
 
@@ -266,7 +276,8 @@ namespace ExcelExport
 
             progressBar1.Value = 0;
             errors = 0;
-            SetErrors(0);
+            warns = 0;
+            SetErrorsAndWarns(0,0);
             bStop = false;
             infoText.Text = "";
 
@@ -299,9 +310,10 @@ namespace ExcelExport
             formTimer.Stop();
         }
 
-        private void SetErrors(int n)
+        private void SetErrorsAndWarns(int nerr, int nwarn)
         {
-            errorNum.Text = n.ToString() + " errors";
+            errorNum.Text = nerr.ToString() + " errors  ";
+            errorNum.Text += nwarn.ToString() + " warns  ";
         }
 
         private void minijson_CheckedChanged(object sender, EventArgs e)

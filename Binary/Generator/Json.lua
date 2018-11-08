@@ -5,7 +5,7 @@ local M = {}
 
 M.Fileext = '.json'
 
-M.minisize = false
+M.minijson = false
 
 function M.Begin(f)
     M.file = FileWriter.new(f)
@@ -16,7 +16,7 @@ function M.OnRowBegin(firstrow)
     if not firstrow then
         M.file:Write(",")
     end
-    if M.minisize then
+    if M.minijson then
         M.file:Write("[")
     else
         M.file:Write("{")
@@ -31,20 +31,20 @@ function M.OnColumn(firstcol, value, datatype, colname)
     if Common.IsBaseDataType(datatype) and datatype ~= "string" then
 		if type(value) ~= 'userdata' then
             value = Common.DataConvert(datatype, value)
-            if M.minisize then
+            if M.minijson then
                 M.file:Write(tostring(value))
             else
                 M.file:Write(string.format('"%s":%s',colname,tostring(value)))
             end
         else
-            if M.minisize then
+            if M.minijson then
                 M.file:Write("null")
             else
                 M.file:Write(string.format('"%s":null',colname))
             end
         end
     else
-        if M.minisize then
+        if M.minijson then
             M.file:Write('"' .. tostring(value) .. '"')
         else
             M.file:Write(string.format('"%s":"%s"',colname,tostring(value)))
@@ -53,7 +53,7 @@ function M.OnColumn(firstcol, value, datatype, colname)
 end
 
 function M.OnRowEnd()
-    if M.minisize then
+    if M.minijson then
         M.file:Write("]")
     else
         M.file:Write("}")

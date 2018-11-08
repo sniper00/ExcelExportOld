@@ -4,7 +4,8 @@ namespace ExcelExport
     public enum InfoType
     {
         Normal,
-        Error
+        Error,
+        Warn
     }
 
     public class InfoContext
