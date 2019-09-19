@@ -4,6 +4,6 @@
     <EnableSecurityDebugging>false</EnableSecurityDebugging>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|AnyCPU'">
-    <StartWorkingDirectory>D:\MyProject\Tools\ExcelExport\Binary</StartWorkingDirectory>
+    <StartWorkingDirectory>G:\GitProjects\ExcelExport\Binary\</StartWorkingDirectory>
   </PropertyGroup>
 </Project>

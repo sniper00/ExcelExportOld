@@ -38,20 +38,20 @@ function M.DataConvert(datatype, v)
         or datatype == 'ulong' then
         return M.checkint(v)
     end
-    
+
     if datatype == 'float'
         or datatype == 'double' then
         return M.checknumber(v)
     end
-    
+
     if datatype == 'bool' then
         return string.lower(tostring(v)) == 'true'
     end
-    
+
     if datatype == 'string' then
         return tostring(v)
     end
-    
+
     return tostring(v)
 end
 

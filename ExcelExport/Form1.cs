@@ -220,13 +220,13 @@ namespace ExcelExport
         void DoData()
         {
             WriteInfo("*****BEGIN " + DateTime.Now.ToString());
-            string[] files1 = Directory.GetFiles(ExcelPath.Text, "*.xls*");
-            string[] files2 = Directory.GetFiles(ExcelPath.Text, "*.txt*");
+            string[] excelFiles = Directory.GetFiles(ExcelPath.Text, "*.xls*");
+            string[] txtFiles = Directory.GetFiles(ExcelPath.Text, "*.txt*");
 
-            string[] files = new string[files1.Length + files2.Length];
+            string[] files = new string[excelFiles.Length + txtFiles.Length];
 
-            files1.CopyTo(files, 0);
-            files2.CopyTo(files, files1.Length);
+            excelFiles.CopyTo(files, 0);
+            txtFiles.CopyTo(files, excelFiles.Length);
 
             SetProgressBarMax(files.Length);
 

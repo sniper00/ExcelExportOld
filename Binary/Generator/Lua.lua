@@ -1,48 +1,35 @@
 local FileWriter = require('FileWriter')
 local Common = require("Common")
 
-
---[[
-是否是多个key
-]]
-local function IsMulKey(colsName,fieldConstraints)
-    local keys = {}
-
+local function MakeKey(colsName, fieldConstraints, row)
+    local keyname = {}
     for _, v in pairs(colsName) do
         if "key" == fieldConstraints[v] then
-            table.insert(keys, v)
+            table.insert(keyname, v)
         end
     end
 
-    if #keys > 1 then
-        return true, keys
-    end
     --没有设置主键，默认第一列为主键
-    if #keys == 0 then
-        keys[1] = colsName[1]
+    if #keyname == 0 then
+        keyname[1] = colsName[1]
     end
-    return false, keys
-end
 
-local function MakeKeyParams(keys)
-    local params = '' --组合 Find函数的形参 e. int key1,int key2
-    local args = '' --组合 多个主键为字符串
-    local args2 = '' --组合 多个主键为字符串
-    local first = true
-    for _, v in pairs(keys) do
-        if not first then
-            params = params .. ', '
-            args = args .. ' .. '
-            args2= args2 .. ' .. '
+    local res = "["
+    if #keyname > 1 then
+        res = res.."'"
+    end
+    for _, v in pairs(keyname) do
+        if type(row[v])=="number" then
+            res = res..tostring(math.floor(row[v]))
+        else
+            res = res..row[v]
         end
-
-        params = params .. v
-        args = args .. 'v.' .. v
-        args2 = args2 .. v
-        first = false
-
     end
-    return params, args, args2
+    if #keyname > 1 then
+        res = res.."'"
+    end
+    res = res.."]"
+    return res
 end
 
 
@@ -52,65 +39,58 @@ M.Fileext = '.lua'
 
 function M.Begin(f)
     M.file = FileWriter.new(f)
-    M.file:WriteLine("local M = {}")
-    M.file:WriteLine()
-    M.file:WriteLine("M.rawdata =")
+    M.file:WriteLine("local M =")
     M.file:WriteLeftBrace()
 end
 
-function M.OnRowBegin(firstrow)
-    if not firstrow then
+function M.OnRow(nrow, firstRow, columnName, fieldConstraint, dataType, row, checker)
+    if not firstRow then
         M.file:Write(",\n")
     end
-    M.file:WriteLeftBrace()
-end
 
-function M.OnColumn(firstcol, value, datatype, colname)
-    if not firstcol then
-        M.file:RawWrite(",\n")
-    end
-
-    if Common.IsBaseDataType(datatype) and datatype ~= "string" then
-        if type(value) ~= 'userdata' then
-            value = Common.DataConvert(datatype, value)
-            M.file:Write(colname ..' = '..tostring(value))
+    local rowData = {}
+    for ncol, name in pairs(columnName) do
+        local value = row[ncol-1]
+        local datatype = dataType[name]
+        if Common.IsBaseDataType(datatype) and datatype ~= "string" then
+            if type(value) ~= 'userdata' then
+                value = Common.DataConvert(datatype, value)
+                rowData[name] = tostring(value)
+            else
+                rowData[name] = "nil"
+            end
         else
-            M.file:Write(colname ..' = nil')
+            rowData[name] = M.CustomDataType[datatype].parser(value)
         end
-    else
-        M.file:Write(colname..' = ' .. M.CustomDataType[datatype].parser(value))
     end
-end
 
-function M.OnRowEnd()
+    if checker then
+        local res = checker(rowData)
+        if res ~= 'ok' then
+            DataExport:PushInfo("Error",string.format("Row %d Col Named [%s]",nrow+2,res))
+        end
+    end
+
+    M.file:WriteLine(MakeKey(columnName, fieldConstraint, rowData)..' = {')
+    M.file.tableCount = M.file.tableCount + 1
+
+    for col,name in pairs(columnName) do
+        if col~=1 then
+            M.file:RawWrite(",\n")
+        end
+        local value =  rowData[name]
+        M.file:Write(name ..' = '..value)
+    end
+
     M.file:WriteLine()
     M.file:WriteRightBrace()
 end
 
-function M.End(colsName,dataType,fieldConstraints)
+function M.End()
     M.file:WriteRightBrace()
-
-    local _, keys= IsMulKey(colsName,fieldConstraints, dataType)
-    local params, args, args2 = MakeKeyParams(keys)
-
-    M.file:WriteLine()
-    M.file:WriteLine('M.keyIndex = {}')
-    M.file:WriteLine('for _,v in pairs(M.rawdata) do')
-    M.file:WriteLine('\tM.keyIndex['..args..'] = v')
-    M.file:WriteLine('end')
-
-    M.file:WriteLine()
-
-    M.file:WriteLine('function M.find('..params..')')
-    M.file:WriteLine('\treturn M.keyIndex['..args2..']')
-    M.file:WriteLine('end')
     M.file:WriteLine()
     M.file:WriteLine('return M')
     M.file:Close()
-end
-
-function M.find(a1,a2)
-    return M.keyIndex[a1..a2]
 end
 
 M.CustomDataType = {}
@@ -137,7 +117,7 @@ M.CustomDataType['array<int>'] = {
         for it in string.gmatch(data, "(%w+)") do
             table.insert(tmp,Common.checkint(it))
         end
-        return '{'.. table.concat(tmp,',')..'}'
+        return '{'.. table.concat(tmp,', ')..'}'
     end
 }
 
@@ -149,9 +129,9 @@ M.CustomDataType['pairarray<int,int>'] = {
         end
         local tmp = {}
         for k,v in string.gmatch(data, "(%w+),(%w+)") do
-            table.insert(tmp,string.format("{%d,%d}",Common.checkint(k),Common.checkint(v)))
+            table.insert(tmp,string.format("{%d, %d}",Common.checkint(k),Common.checkint(v)))
         end
-        return '{'.. table.concat(tmp,',')..'}'
+        return '{'.. table.concat(tmp,', ')..'}'
     end
 }
 

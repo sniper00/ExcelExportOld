@@ -106,7 +106,7 @@ namespace ExcelExport
                 }
                 else if(Path.GetExtension(file) == ".txt")
                 {
-                    var dt = CsvReader.OpenCSV(file, new string[] { "\t" },1);
+                    var dt = CsvReader.OpenCSV(file, new string[] { "\t" },1,0,0,0,true);
 
                     if (null == dt)
                         return true;

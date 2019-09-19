@@ -31,8 +31,12 @@ function FileWriter:WriteLine(s)
     table_insert( self.cache ,'\n')
 end
 
-function FileWriter:WriteLeftBrace()
-    self:WriteLine('{')
+function FileWriter:WriteLeftBrace(inline)
+    if inline then
+        self:Write('{')
+    else
+        self:WriteLine('{')
+    end
     self.tableCount = self.tableCount + 1
 end
 
