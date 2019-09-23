@@ -91,7 +91,7 @@ local function OnData(dt,checkScript)
     --end
     for _,v in pairs(Generators)  do
         if v.Enable and v.End then
-            v.End(columnName,dataType,fieldConstraint)
+            v.End(rows.Count- skipRowNum)
         end
     end
 

@@ -163,7 +163,8 @@ function M.OnRow(nrow, firstRow, columnName, fieldConstraint, dataType, row, che
 end
 
 -- 此函数用于 json,lua,xml 等文本文件，配置加载代码生成器不用定义此函数。
-function M.End()
+-- size 配表总条数
+function M.End(size)
     -- 这里编写生成结束处理逻辑，一般是写文件
     -- 参考 Json.lua
 end
