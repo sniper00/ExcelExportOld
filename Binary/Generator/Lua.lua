@@ -86,7 +86,7 @@ function M.OnRow(nrow, firstRow, columnName, fieldConstraint, dataType, row, che
     M.file:WriteRightBrace()
 end
 
-function M.End(_,_,_,size)
+function M.End(size)
     M.file:WriteRightBrace()
     M.file:WriteLine()
     M.file:WriteLine(string.format("M.__size = %u", size))
